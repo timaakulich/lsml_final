@@ -39,11 +39,16 @@ Dataset has more than **2.000.000** lyrics from different artists
 ## How to start?
 ```docker-compose up```
 
-#### PS
-There are 3 pretrained models for `beatles`, `eminem`, `frank-sinatra` by myself on Google Coolab
-
 
 ### Project links
  - Fronted http://0.0.0.0/
  - REST API http://0.0.0.0/docs
  - ML FLOW Server http://0.0.0.0:5001/
+
+
+#### PS
+There are 3 pretrained models for `beatles`, `eminem`, `frank-sinatra` by myself on Google Coolab
+
+You can train your own (There are several prepared csv for training `example_csv/beyonce.csv` & `example_csv/easy_e.csv`)
+
+Just open http://0.0.0.0/add-artist and upload any .csv (`lyrics` header required)
