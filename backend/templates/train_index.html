@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add artist</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
+          crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.26.1/axios.min.js" integrity="sha512-bPh3uwgU5qEMipS/VOmRqynnMXGGSRv+72H/N260MQeXZIK4PG48401Bsby9Nq5P5fz7hy5UGNmC/W1Z51h2GQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+{% raw %}
+<div id="app" class="container">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">ML PROJECT</a>
+            <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Generate</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/add-artist">Train</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <br>
+    <form method="post" action="/train" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label class="form-label">Artist</label>
+            <input class="form-control"  type="text" name="artist" v-model="artist">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Epochs</label>
+            <input class="form-control"  type="number" name="epochs" min="1" step="1" v-model="epochs">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">File csv (must have lyrics column)</label>
+            <input class="form-control"  type="file" name="file" id="file" accept=".csv">
+        </div>
+        <button type="button" class="btn btn-primary" @click="train" :disabled="progress !== null">
+            <template v-if="progress !== null">
+                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  Loading...
+            </template>
+            <template v-else>
+                Train!
+            </template>
+        </button>
+    </form>
+    <br>
+    <div v-if="progress !== null"  class="d-flex justify-content-center">
+        <div class="progress" style="width: 100%">
+          <div class="progress-bar" role="progressbar" :style="{width: `${progress}%`}" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">{{progress}}%</div>
+        </div>
+    </div>
+</div>
+{% endraw %}
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            intervalId: null,
+            artist: '',
+            epochs: 20,
+            progress: null,
+            responseData: {}
+        },
+        methods: {
+            train: async function () {
+                this.progress = 0
+                var formData = new FormData()
+                var file = document.querySelector('#file')
+                formData.append("file", file.files[0])
+                formData.append("artist", this.artist)
+                formData.append("epochs", this.epochs)
+                let response = await axios.post('/train', formData, {
+                    headers: {
+                      'Content-Type': 'multipart/form-data'
+                    },
+                    validateStatus: false
+                })
+                if (response.status !== 202) {
+                    alert(JSON.stringify(response.data.detail))
+                    this.progress = null
+                    return
+                }
+
+                let taskId = response.data['task_id']
+                let $this = this
+                this.intervalId = setInterval(async function () {
+                    let data = await $this.checkTask(taskId)
+                    if (data.ready) {
+                        $this.progress = null
+                        clearInterval($this.intervalId)
+                        return
+                    }
+                    let state = data.state || {}
+                    if (state.current_epoch) {
+                        $this.progress = Math.round(state.current_epoch / state.epochs * 100)
+                    }
+                }, 5000)
+            },
+            checkTask: async function(taskId) {
+                let response = await axios.get(`/task/${taskId}`)
+                return response.data
+            }
+        }
+    })
+</script>
+</body>
+</html>

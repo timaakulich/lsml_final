@@ -1,0 +1,73 @@
+version: "3.9"
+services:
+  redis:
+    image: "redis:alpine"
+    hostname: redis
+
+  lsml_postgres:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB: "mlflow"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+    ports:
+      - "5433:5432"
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: ci/mlflow.Dockerfile
+    ports:
+      - "5001:5000"
+    environment:
+      BACKEND_URI:  postgresql://postgres:postgres@lsml_postgres:5432/mlflow
+      ARTIFACT_ROOT: /mlflow/artifacts
+    depends_on:
+      - lsml_postgres
+    volumes:
+      - app-volume:/mlflow/artifacts
+
+  backend:
+    build:
+      context: .
+      dockerfile: ci/backend.Dockerfile
+    command: uvicorn backend.application:app --host 0.0.0.0 --port 80
+    ports:
+      - "80:80"
+    environment:
+      ml_flow_server_url: "http://mlflow:5000"
+      redis_host: redis
+    depends_on:
+      - mlflow
+    volumes:
+      - app-volume:/mlflow/artifacts
+
+  celery:
+    build:
+      context: .
+      dockerfile: ci/backend.Dockerfile
+    command: celery -A backend.tasks:celery_app worker -Q train,generate -l INFO
+    environment:
+      ml_flow_server_url: "http://mlflow:5000"
+      redis_host: redis
+    depends_on:
+      - backend
+    volumes:
+      - app-volume:/mlflow/artifacts
+
+  pretrained:
+    build:
+      context: .
+      dockerfile: ci/backend.Dockerfile
+    command: python backend/load_pretrained.py
+    environment:
+      ml_flow_server_url: "http://mlflow:5000"
+      redis_host: redis
+    depends_on:
+      - backend
+    restart: "no"
+    volumes:
+      - app-volume:/mlflow/artifacts
+
+volumes:
+     app-volume:
