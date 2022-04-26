@@ -26,6 +26,7 @@ def set_task_state(task_id, data):
     cache.set(f'task_{task_id}', json.dumps(data))
 
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 mlflow.set_tracking_uri(settings.ml_flow_server_url)
 mlflow_client = mlflow.tracking.MlflowClient(settings.ml_flow_server_url)
 
@@ -78,13 +79,14 @@ def train_nn_model(artist, lyrics_str, n_epochs=1, task_id: str = ''):
         return X, y
 
     train_x, train_y = getdata(sentences, next_chars)
-    X_train_tensor = torch.tensor(train_x, dtype=torch.long)
-    Y_train_tensor = torch.tensor(train_y, dtype=torch.long)
+    X_train_tensor = torch.tensor(train_x, dtype=torch.long).to(device)
+    Y_train_tensor = torch.tensor(train_y, dtype=torch.long).to(device)
 
     train = torch.utils.data.TensorDataset(X_train_tensor, Y_train_tensor)
     train_loader = torch.utils.data.DataLoader(train, batch_size=128)
 
     model = SimpleLSTM(len(chars), 256, 256, char_to_int=char_to_int, int_to_char=int_to_char)
+    model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.002)
     avg_losses_f = []
     with mlflow.start_run():
@@ -144,9 +146,9 @@ def predict_lyrics(artist, start_text, length, variance=0.25):
         for t, char in enumerate(window):
             x[0, t] = char_to_int[char]
 
-        x_in = Variable(torch.LongTensor(x))
+        x_in = Variable(torch.LongTensor(x).to(device))
         pred = model(x_in)
-        pred = np.array(F.softmax(pred, dim=1).data[0])
+        pred = np.array(F.softmax(pred, dim=1).data[0].cpu())
         next_index = sample(pred, variance)
         next_char = int_to_char[next_index]  # noqa
 

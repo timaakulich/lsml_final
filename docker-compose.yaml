@@ -46,7 +46,7 @@ services:
     build:
       context: .
       dockerfile: ci/backend.Dockerfile
-    command: celery -A backend.tasks:celery_app worker -Q train,generate -l INFO
+    command: celery -A backend.tasks:celery_app worker -Q train,generate -l INFO -c 4
     environment:
       ml_flow_server_url: "http://mlflow:5000"
       redis_host: redis
