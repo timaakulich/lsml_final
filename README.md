@@ -18,6 +18,8 @@ Dataset has more than **2.000.000** lyrics from different artists
  - backend: fastapi
  - async tasks: celery
  - redis: message broker and result backend
+ - lsml_postgres: database for mlflow
+ - mlflow: backend server of https://mlflow.org/
 
 ### Loss function
 ```CrossEntropyLoss```
